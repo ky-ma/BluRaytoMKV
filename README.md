@@ -9,3 +9,4 @@ BluRay to MKV Automation
 * Movies -        Contains Movies                                             (Moved)
 * Source -        Contains NEW Rips                                           (New)
 * Transcoded -    Contains x264 transcoded video                              (Transcoded)
+* Permissions -   User and Group for access to media
