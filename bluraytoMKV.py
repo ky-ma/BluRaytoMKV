@@ -16,12 +16,12 @@ import pexpect
 #	Transcoded - 	Contains x264 transcoded video					(Transcoded)
 #
 
-SOURCE = "PATH"
-TRANSCODED = "PATH"
-MERGED = "PATH"
-CONVERTED = "PATH"
-MOVIES = "PATH"
-PERMISSIONS = "user:group"
+SOURCE = "/share/4000gb-4/MakeMKV/BluRays/"
+TRANSCODED = "/share/4000gb-4/MakeMKV/Transcoded/"
+MERGED = "/share/4000gb-4/MakeMKV/Merged/"
+CONVERTED = "/share/4000gb-4/MakeMKV/Converted/"
+MOVIES = "/share/4000gb-4/Movies/"
+PERMISSIONS = "kma:users"
 
 #Compare the Transcoded Directory to Source and see if it's already Transcoded, and mark the Source respectively
 #
@@ -37,11 +37,13 @@ convert = True
 
 while convert == True:
 	#Fix Permissions
-	subprocess.Popen('find ' + SOURCE + ' -type f -name "*.mkv" -print0 | xargs -0 chmod 644', shell=True)
-	subprocess.Popen('find ' + SOURCE + ' -type f -name "*.mkv" -print0 | xargs -0 chown ' + PERMISSIONS, shell=True)
-	subprocess.Popen('find ' + MERGED + ' -type f -name "*.mkv" -print0 | xargs -0 chmod 644', shell=True)
-	subprocess.Popen('find ' + MERGED + ' -type f -name "*.mkv" -print0 | xargs -0 chown ' + PERMISSIONS, shell=True)
+	subprocess.Popen('find ' + SOURCE + ' -type f -name "*.mkv" -print0 | xargs chmod 644', shell=True)
+	subprocess.Popen('find ' + SOURCE + ' -type f -name "*.mkv" -print0 | xargs chown ' + PERMISSIONS, shell=True)
+	subprocess.Popen('find ' + MERGED + ' -type f -name "*.mkv" -print0 | xargs chmod 644', shell=True)
+	subprocess.Popen('find ' + MERGED + ' -type f -name "*.mkv" -print0 | xargs chown ' + PERMISSIONS, shell=True)
+
 	#Reset to default
+	sourceRenameList = []
 	sourceFileList = []
 	renameSourceFileList = []
 	transcodedFileList = []
@@ -49,6 +51,26 @@ while convert == True:
 	convertedFileList = []
 	statusFileList = []
 	status = -1
+
+	for folder, subs, files in os.walk(SOURCE):
+		for filename in files:
+			sourceRenameList.append({'fileName':os.path.join(filename)[:-4], 'filePath':os.path.join(folder), 'renamed':'no'})
+
+	#Moving and auto renaming files under the sub directoryies to match the directory name
+	for rename in sourceRenameList:
+		if rename['renamed'] == 'no':
+			if rename['filePath'] == SOURCE:
+				print 'Do not need to rename file: %s' % rename['fileName']
+			else:
+				filePath = rename['filePath']
+				fileNameOnly = filePath.replace(SOURCE,'') + '.mkv'
+				print 'Will RENAME this file: %s --->>> %s' % (rename['fileName'],fileNameOnly)
+				move_cmd = 'mv ' + rename['filePath'] + '/' + rename['fileName'] + ' ' + SOURCE + fileNameOnly
+				print "move_cmd is: %s" % move_cmd
+				rmdir_cmd = 'rmdir ' + filePath
+				print "rmdir_cmd is: %s" % rmdir_cmd
+				subprocess.Popen(move_cmd, shell=True)
+				subprocess.Popen(rmdir_cmd, shell=True)
 
 	#print "-----SCAN SOURCE-----"
 	for path, subFolders, files in os.walk(SOURCE):
@@ -245,6 +267,12 @@ while convert == True:
 						subprocess.Popen('echo "[$(date +%b\ %d\ %Y:\ %H:%M:%S)] Merging Failed: Timed Out', shell=True)
 					merge.close()
 
+					#Fix Permissions before another loop of Transcoding
+					subprocess.Popen('find ' + SOURCE + ' -type f -name "*.mkv" -print0 | xargs chmod 644', shell=True)
+					subprocess.Popen('find ' + SOURCE + ' -type f -name "*.mkv" -print0 | xargs chown ' + PERMISSIONS, shell=True)
+					subprocess.Popen('find ' + MERGED + ' -type f -name "*.mkv" -print0 | xargs chmod 644', shell=True)
+					subprocess.Popen('find ' + MERGED + ' -type f -name "*.mkv" -print0 | xargs chown ' + PERMISSIONS, shell=True)
+
 					subprocess.Popen('echo "[$(date +%b\ %d\ %Y:\ %H:%M:%S)] Finished Merging:" "' + transcoded['name'] + '"', shell=True)
 					subprocess.Popen(move_cmd, shell=True)
 		else:
@@ -254,12 +282,6 @@ while convert == True:
 			#pdb.set_trace()
 			subprocess.Popen('echo "[$(date +%b\ %d\ %Y:\ %H:%M:%S)] Moving to Completed:" "' + transcoded['name'] + '"', shell=True)
 			subprocess.Popen(move_cmd, shell=True)
-
-	#Fix Permissions before another loop of Transcoding
-	subprocess.Popen('find ' + SOURCE + ' -type f -name "*.mkv" -print0 | xargs -0 chmod 644', shell=True)
-	subprocess.Popen('find ' + SOURCE + ' -type f -name "*.mkv" -print0 | xargs -0 chown ' + PERMISSIONS, shell=True)
-	subprocess.Popen('find ' + MERGED + ' -type f -name "*.mkv" -print0 | xargs -0 chmod 644', shell=True)
-	subprocess.Popen('find ' + MERGED + ' -type f -name "*.mkv" -print0 | xargs -0 chown ' + PERMISSIONS, shell=True)
 
 	#Check if it's already transcoded
 	for source in sourceFileList:
