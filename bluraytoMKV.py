@@ -64,11 +64,11 @@ while convert == True:
 			else:
 				filePath = rename['filePath']
 				fileNameOnly = filePath.replace(SOURCE,'') + '.mkv'
-				print 'Will RENAME this file: %s --->>> %s' % (rename['fileName'],fileNameOnly)
-				move_cmd = 'mv ' + rename['filePath'] + '/' + rename['fileName'] + ' ' + SOURCE + fileNameOnly
-				print "move_cmd is: %s" % move_cmd
+				print 'Will RENAME this file: %s --->>> %s' % (rename['fileName'], fileNameOnly)
+				move_cmd = 'mv ' + rename['filePath'] + '/' + rename['fileName'] + '.mkv ' + SOURCE + fileNameOnly
+				print "[DBG] move_cmd is: %s" % move_cmd
 				rmdir_cmd = 'rmdir ' + filePath
-				print "rmdir_cmd is: %s" % rmdir_cmd
+				print "[DBG] rmdir_cmd is: %s" % rmdir_cmd
 				subprocess.Popen(move_cmd, shell=True)
 				subprocess.Popen(rmdir_cmd, shell=True)
 
@@ -154,8 +154,8 @@ while convert == True:
 			#Find the path of the source file that matches that transcoded file
 			for source in range(len(sourceFileList)):
 				if sourceFileList[source]['name'] == merged['name']:
-					move_cmd = 'mv "' +  sourceFileList[source]['path'] + '/' + sourceFileList[source]['name'] + ".mkv\" \"" + CONVERTED + sourceFileList[source]['name'] + '.mkv"'
-					print "move_cmd is: %s" % move_cmd
+					move_cmd = 'mv ' + sourceFileList[source]['path'] + sourceFileList[source]['name'] + '.mkv ' + CONVERTED + sourceFileList[source]['name'] + '.mkv'
+					print "[DBG] move_cmd is: %s" % move_cmd
 #					pdb.set_trace()
 					subprocess.Popen('echo "[$(date +%b\ %d\ %Y:\ %H:%M:%S)] Moving to Completed:" "' + sourceFileList[source]['name'] + '"', shell=True)
 					subprocess.Popen(move_cmd, shell=True)
@@ -172,7 +172,7 @@ while convert == True:
 				print "Source: %s	Transcoded: %s" % (sourceFileList[source]['name'], transcoded['name'])
 				if sourceFileList[source]['name'] == transcoded['name']:
 					subprocess.Popen('echo "[$(date +%b\ %d\ %Y:\ %H:%M:%S)] Starting Merge:" "' + transcoded['name'] + '"', shell=True)
-					mkvCheck_cmd = 'mkvmerge -i "' + sourceFileList[source]['path'] + '/'  + transcoded['name'] + '.mkv"'
+					mkvCheck_cmd = 'mkvmerge -i "' + sourceFileList[source]['path'] + transcoded['name'] + '.mkv"'
 					print "[DBG] Command is: %s" % mkvCheck_cmd
 					mkvCheck = pexpect.spawn(mkvCheck_cmd)
 					mkvCheck.logfile = sys.stdout
@@ -253,10 +253,10 @@ while convert == True:
 					#mkvmerge -o <outputfile> <file with x264> <file with audio/subtitle>
 
 					if status == 3 or status == 5 or status == 7:
-						merge_cmd = 'mkvmerge -o "' + MERGED + transcoded['name'] + '.x264.' + audioTrack1  + '.Sub.mkv" --title "' + transcoded['name'] + '.x264.' + audioTrack1 + '.Sub.mkv" --track-order 2:1,3:2,3:3,3:4 --no-chapters "' + TRANSCODED + transcoded['name'] + '.x264.mkv" --track-name 2:"' + audioTrack1 + '" --track-name 3:"' + audioTrack2 + '" -D "' + sourceFileList[source]['path'] + '/' + transcoded['name'] + '.mkv"'
+						merge_cmd = 'mkvmerge -o "' + MERGED + transcoded['name'] + '.x264.' + audioTrack1  + '.Sub.mkv" --title "' + transcoded['name'] + '.x264.' + audioTrack1 + '.Sub.mkv" --track-order 2:1,3:2,3:3,3:4 --no-chapters "' + TRANSCODED + transcoded['name'] + '.x264.mkv" --track-name 2:"' + audioTrack1 + '" --track-name 3:"' + audioTrack2 + '" -D "' + sourceFileList[source]['path'] + transcoded['name'] + '.mkv"'
 					else:
-						merge_cmd = 'mkvmerge -o "' + MERGED + transcoded['name'] + '.x264.' + audioTrack1  + '.Sub.mkv" --title "' + transcoded['name'] + '.x264.' + audioTrack1 + '.Sub.mkv" --track-order 2:1,3:2,3:3,3:4 --no-chapters "' + TRANSCODED + transcoded['name'] + '.x264.mkv" --track-name 2:"' + audioTrack1 + '" -D "' + sourceFileList[source]['path'] + '/' + transcoded['name'] + '.mkv"'
-					move_cmd = 'mv "' +  sourceFileList[source]['path'] + '/' + sourceFileList[source]['name'] + ".mkv\" \"" + CONVERTED + sourceFileList[source]['name'] + '.mkv"'
+						merge_cmd = 'mkvmerge -o "' + MERGED + transcoded['name'] + '.x264.' + audioTrack1  + '.Sub.mkv" --title "' + transcoded['name'] + '.x264.' + audioTrack1 + '.Sub.mkv" --track-order 2:1,3:2,3:3,3:4 --no-chapters "' + TRANSCODED + transcoded['name'] + '.x264.mkv" --track-name 2:"' + audioTrack1 + '" -D "' + sourceFileList[source]['path'] + transcoded['name'] + '.mkv"'
+					move_cmd = 'mv ' + sourceFileList[source]['path'] + sourceFileList[source]['name'] + '.mkv ' + CONVERTED + sourceFileList[source]['name'] + '.mkv'
 
 					print "[DBG] merge_cmd is: %s" % merge_cmd
 					#print "move_cmd is: %s" % move_cmd
@@ -277,8 +277,8 @@ while convert == True:
 					subprocess.Popen(move_cmd, shell=True)
 		else:
 			#pdb.set_trace()
-			move_cmd = 'mv "' +  transcoded['path'] + '/' + transcoded['name'] + "\".* " + CONVERTED + '/Transcoded/'
-			print "move_cmd is: %s" % move_cmd
+			move_cmd = 'mv ' +  transcoded['path'] + transcoded['name'] + '.mkv ' + CONVERTED + 'Transcoded/'
+			print "[DBG] move_cmd is: %s" % move_cmd
 			#pdb.set_trace()
 			subprocess.Popen('echo "[$(date +%b\ %d\ %Y:\ %H:%M:%S)] Moving to Completed:" "' + transcoded['name'] + '"', shell=True)
 			subprocess.Popen(move_cmd, shell=True)
