@@ -1,57 +1,112 @@
 #!/usr/bin/python
-import os
-import subprocess
-import sys
+import os, shutil, subprocess, pexpect, sys, time, re
 import pdb
-import time
-import re
-import operator
-import shlex
-import pexpect
 
-#Scan:	Converted -	Completed Conversion of Disks					(Originals)
-#	Merged - 	Contains mkvmerged subtitle, Transcoded Video and Audio		(Compressed)
-#	Movies -	Contains Movies							(Moved)
-#	Source - 	Contains NEW Rips						(New)
-#	Transcoded - 	Contains x264 transcoded video					(Transcoded)
-#
-
-SOURCE = "/share/4000gb-4/MakeMKV/BluRays/"
-TRANSCODED = "/share/4000gb-4/MakeMKV/Transcoded/"
-MERGED = "/share/4000gb-4/MakeMKV/Merged/"
-CONVERTED = "/share/4000gb-4/MakeMKV/Converted/"
-MOVIES = "/share/4000gb-4/Movies/"
-PERMISSIONS = "kma:users"
-
-#Compare the Transcoded Directory to Source and see if it's already Transcoded, and mark the Source respectively
-#
-#Compare the Merged Directory to Converted to make sure that the Transcode is finished
-###
-#rootdir = sys.argv[1]
+SOURCE = "/share/MakeMKV/BluRays/"
+TRANSCODED = "/share/MakeMKV/Transcoded/"
+MERGED = "/share/MakeMKV/Merged/"
+CONVERTED = "/share/MakeMKV/Converted/"
+CONVERTEDTRANSCODED = CONVERTED + "Transcoded/"
+MOVIES = "/share/Movies/"
+PERMISSIONS = "user:group"
+TEMPPATH = "/share/MakeMKV/tmp/"
 
 reg_exp1 = r'(.+?)(.[^\.]*$)'					#Strip off .mkv extensions
 reg_exp4 = r'(.+?)(.[^\.]*.[^\.]*.[^\.]*.[^\.]*$)'		#Strip off .x264.DTS.Sub.mkv extensions
 reg_exp5 = r'BluRays\/(.+)'								#Capture Directory
 convert = True
 
+sourceRenameList = []
+sourceFileList = []
+renameSourceFileList = []
+transcodedFileList = []
+mergedFileList = []
+convertedFileList = []
+statusFileList = []
+status = -1
 
-while convert == True:
-	#Fix Permissions
-	subprocess.Popen('find ' + SOURCE + ' -type f -name "*.mkv" -print0 | xargs chmod 644', shell=True)
-	subprocess.Popen('find ' + SOURCE + ' -type f -name "*.mkv" -print0 | xargs chown ' + PERMISSIONS, shell=True)
-	subprocess.Popen('find ' + MERGED + ' -type f -name "*.mkv" -print0 | xargs chmod 644', shell=True)
-	subprocess.Popen('find ' + MERGED + ' -type f -name "*.mkv" -print0 | xargs chown ' + PERMISSIONS, shell=True)
+movieList = [
+			"The.Visitor.2007.DVD",
+			"Blade.2011.BluRay",
+			"Stop.Loss.2008.DVD",
+			"Maze.Runner.The.Death.Cure.2018.BluRay",
+			"Bad.Boys.1995.BluRay",
+			"Wanted.2008.DVD",
+			"Life.on.the.Line.2016",
+			"Blade.of.the.Immortal.2017.BluRay",
+			"House.of.Flying.Daggers.2004.BluRay",
+			"Transformers.Prime.Darkness.Rising.2011.DVD"
+			]
+tempSource = TEMPPATH + 'Test.mkv'
+tempConverted = TEMPPATH + 'Test.x264.mkv'
 
-	#Reset to default
-	sourceRenameList = []
-	sourceFileList = []
+def createSources():
+	for movie in movieList:
+		movieDir = SOURCE + movie
+		movieDirFile = movieDir + '/' + movie + '.mkv'
+		movieDirFileTranscoded = TRANSCODED + movie + '.x264.mkv'
+		print(movieDirFile)
+		try:
+			os.mkdir(movieDir, 0755)
+		except:
+			print 'Movie Directory Exists'
+		#shutil.copyfile(tempSource, movieDirFile)
+		#shutil.copyfile(tempConverted, movieDirFileTranscoded)
+#print "-----SCAN SOURCE-----"
+#Scannong the source and setting these new files to not transcoded
+def scanSource():
+	for path, subFolders, files in os.walk(SOURCE):
+		#print ('Found directory: %s' % path)
+		for file in files:
+			sourceFileList.append({'name':os.path.join(file)[:-4], 'path':os.path.join(path), 'transcoded':'no'})
+			print 'Movie Found: %s' % os.path.join(path) + os.path.join(file)
+
+#print "-----SCAN TRANSCODED-----"
+#Scanning the transcoded folder, files in here have been transcoded bot not merged into the new MKV
+def scanTranscoded():
+	for path, subFolders, files in os.walk(TRANSCODED):
+		for file in files:
+			transcodedFileList.append({'name':os.path.join(file)[:-9], 'path':os.path.join(path), 'merged':'no'})
+#		print  os.path.join(path) + " " + os.path.join(file)
+	#print "-----TRANSCODED-----"
+	#Check to see if SOURCE exists in TRANSCODED\
+	for source in sourceFileList:
+		for transcoded in transcodedFileList:
+			if source['name'] == transcoded['name']:
+				source['transcoded'] = 'yes'
+
+#print "-----SCAN MERGED-----"
+#Scanning the Merged folder, files in here have been merged from the Transcoded video into the new MKV
+def scanMerged():
+	for path, subFolders, files in os.walk(MERGED):
+		for file in files:
+			#mergedFileList.append({'name':os.path.join(file), 'path':os.path.join(path)})
+			mergedFileList.append({'name':re.findall(reg_exp4,(os.path.join(file)))[0][0], 'path':os.path.join(path), 'converted':'yes'})
+#		print  os.path.join(path) + " " + os.path.join(file)
+	#print "-----MERGED-----"
+	#Check to see if TRANSCODED is in MERGED
+	for transcoded in transcodedFileList:
+		for merged in mergedFileList:
+			if transcoded['name'] == merged['name']:
+				transcoded['merged'] = 'yes'
+
+#print "-----SCAN CONVERTED-----"
+#Scanning the converted folder, Source and Transcoded files are moved here after the merge
+def scanConverted():
+	for path, subFolders, files in os.walk(CONVERTED):
+		for file in files:
+			convertedFileList.append({'name':re.findall(reg_exp1,(os.path.join(file)))[0][0], 'path':os.path.join(path)})
+#		print  os.path.join(path) + " " + os.path.join(file)
+#	print "-----CONVERTED-----"
+	#Check to see if MERGED is in CONVERTED
+	for merged in mergedFileList:
+		for converted in convertedFileList:
+			if merged['name'] == converted['name']:
+				merged['converted'] = 'yes'
+
+def renameBluRays():
+	global renameSourceFileList
 	renameSourceFileList = []
-	transcodedFileList = []
-	mergedFileList = []
-	convertedFileList = []
-	statusFileList = []
-	status = -1
-
 	for folder, subs, files in os.walk(SOURCE):
 		for filename in files:
 			sourceRenameList.append({'fileName':os.path.join(filename)[:-4], 'filePath':os.path.join(folder), 'renamed':'no'})
@@ -72,105 +127,111 @@ while convert == True:
 				subprocess.Popen(move_cmd, shell=True)
 				subprocess.Popen(rmdir_cmd, shell=True)
 
-	#print "-----SCAN SOURCE-----"
-	for path, subFolders, files in os.walk(SOURCE):
-		print ('Found directory: %s' % path)
-		for file in files:
-			sourceFileList.append({'name':os.path.join(file)[:-4], 'path':os.path.join(path), 'transcoded':'no'})
-			#print  os.path.join(path) + " " + os.path.join(file)
-	
-	#print "-----SCAN TRANSCODED-----"
-	for path, subFolders, files in os.walk(TRANSCODED):
-	    for file in files:
-	        transcodedFileList.append({'name':os.path.join(file)[:-9], 'path':os.path.join(path), 'merged':'no'})
-#		print  os.path.join(path) + " " + os.path.join(file)
-
-	#print "-----SCAN MERGED-----"
-	for path, subFolders, files in os.walk(MERGED):
-	    for file in files:
-	        #mergedFileList.append({'name':os.path.join(file), 'path':os.path.join(path)})
-	        mergedFileList.append({'name':re.findall(reg_exp4,(os.path.join(file)))[0][0], 'path':os.path.join(path), 'converted':'yes'})
-#		print  os.path.join(path) + " " + os.path.join(file)
-
-	#print "-----SCAN CONVERTED-----"
-	for path, subFolders, files in os.walk(CONVERTED):
-	    for file in files:
-	        convertedFileList.append({'name':re.findall(reg_exp1,(os.path.join(file)))[0][0], 'path':os.path.join(path)})
-#		print  os.path.join(path) + " " + os.path.join(file)
-
-	#print "-----TRANSCODED-----"
-	#Check to see if SOURCE exists in TRANSCODED\
-	for source in sourceFileList:
-		for transcoded in transcodedFileList:
-			if source['name'] == transcoded['name']:
-				source['transcoded'] = 'yes'
-
-	#print "-----MERGED-----"
-	#Check to see if TRANSCODED is in MERGED
-	for transcoded in transcodedFileList:
-		for merged in mergedFileList:
-			if transcoded['name'] == merged['name']:
-				transcoded['merged'] = 'yes'
-
-#	print "-----CONVERTED-----"
-	#Check to see if MERGED is in CONVERTED
+def checkFiles():
+#Check to see if the SOURCE files were moved after MERGED Scan. If not, move SOURCE to CONVERTED
+#	pdb.set_trace()
 	for merged in mergedFileList:
-		for converted in convertedFileList:
-			if merged['name'] == converted['name']:
-				merged['converted'] = 'yes'
+		for source in sourceFileList:
+			if merged['name'] == source['name']:
+				print '[DBG] Moving Source: %s to Converted.' % source['name']
+				#Find the path of the source file that matches that transcoded file
+				move_cmd = 'mv ' + source['path'] + source['name'] + '.mkv ' + CONVERTED + source['name'] + '.mkv'
+				#print "[DBG] CHECKFILESTATUS move_cmd is: %s" % move_cmd
+				#pdb.set_trace()
+				subprocess.Popen('echo "[$(date +%b\ %d\ %Y:\ %H:%M:%S)] Moving to Completed:" "' + source['name'] + '"', shell=True)
+				subprocess.Popen(move_cmd, shell=True)
+				time.sleep(2)
+		for transcoded in transcodedFileList:
+			if merged['name'] == transcoded['name']:
+				print '[DBG] Moving Transcoded: %s to Converted/Transcoded.' % transcoded['name']
+				move_cmd = 'mv ' +  transcoded['path'] + transcoded['name'] + '.x264.mkv ' + CONVERTEDTRANSCODED
+				#print "[DBG] CHECKFILESTATUS move_cmd is: %s" % move_cmd
+				#pdb.set_trace()
+				subprocess.Popen('echo "[$(date +%b\ %d\ %Y:\ %H:%M:%S)] Moving to Completed:" "' + transcoded['name'] + '"', shell=True)
+				subprocess.Popen(move_cmd, shell=True)
+				time.sleep(2)
 
-	#Sort the Dictionary lists
-	sourceFileList.sort(key=operator.itemgetter('name'))
-	transcodedFileList.sort(key=operator.itemgetter('name'))
-	mergedFileList.sort(key=operator.itemgetter('name'))
-	convertedFileList.sort(key=operator.itemgetter('name'))
-
-	print "----Files to Transcode: %s" % len(sourceFileList)
-	for source in sourceFileList:
-		if source['transcoded'] == 'no':
-			print '%-60s: Not Transcoded' % source['name']
-		elif source['transcoded'] == 'yes':
-			print '%-60s: Transcoded' % source['name']
-	print "----Files Transcoded: %s" % len(transcodedFileList)
-	for merged in transcodedFileList:
-		if merged['merged'] == 'no':
-			print '%-60s: Not Merged' % merged['name']
-		elif merged['merged'] == 'yes':
-			print '%-60s: Merged' % merged['name']
-	print "----Files Merged: %s" % len(mergedFileList)
-	for converted in mergedFileList:
-		if converted['converted'] == 'no':
-			print '%-60s: Not Converted' % converted['name']
-		elif converted['converted'] == 'yes':
-			print '%-60s: Converted' % converted['name']
-	print "-----End of LIST-----"
-
-	#Check to see if the SOURCE files were moved after MERGED Scan. If not, move SOURCE to CONVERTED
+def checkTranscodedFiles():
+#Check to see if the SOURCE files were moved after MERGED Scan. If not, move SOURCE to CONVERTED
 #	pdb.set_trace()
 #	print "[DBG] Checking mergedFileList"
-	for merged in mergedFileList:
-		if merged['converted'] == 'no':
-#			pdb.set_trace()
+	for transcoded in transcodedFileList:
+		if transcoded['merged'] == 'no':
+			print '[DBG] Moving Transcoded: %s to Converted/Transcoded.' % transcoded['name']
 			#Find the path of the source file that matches that transcoded file
-			for source in range(len(sourceFileList)):
-				if sourceFileList[source]['name'] == merged['name']:
-					move_cmd = 'mv ' + sourceFileList[source]['path'] + sourceFileList[source]['name'] + '.mkv ' + CONVERTED + sourceFileList[source]['name'] + '.mkv'
-					print "[DBG] move_cmd is: %s" % move_cmd
-#					pdb.set_trace()
-					subprocess.Popen('echo "[$(date +%b\ %d\ %Y:\ %H:%M:%S)] Moving to Completed:" "' + sourceFileList[source]['name'] + '"', shell=True)
-					subprocess.Popen(move_cmd, shell=True)
+			move_cmd = 'mv ' + transcoded['path'] + transcoded['name'] + '.x264.mkv ' + CONVERETDTRANSCODED + transcoded['name'] + '.x264.mkv'
+			#print "[DBG] CheckTranscodedFiles move_cmd is: %s" % move_cmd
+			pdb.set_trace()
+			subprocess.Popen('echo "[$(date +%b\ %d\ %Y:\ %H:%M:%S)] Moving to Completed:" "' + transcoded['name'] + '"', shell=True)
+			subprocess.Popen(move_cmd, shell=True)
+			time.sleep(2)
 
+def initList():
+	global sourceRenameList
+	global sourceFileList
+	global transcodedFileList
+	global mergedFileList
+	global convertedFileList
+	global statusFileList
+	sourceRenameList = []
+	sourceFileList = []
+	transcodedFileList = []
+	mergedFileList = []
+	convertedFileList = []
+	statusFileList = []
+
+	scanSource()
+	scanTranscoded()
+	scanMerged()
+	scanConverted()
+
+#createSources()
+
+while convert == True:
+	renameBluRays()
+	initList()					#Create the Initial list of files, because it will change after finishing the queue. 
+	checkFiles()
+	initList()					#Rescan List after the file moves
+	#checkTranscodedFiles()		#Move Transcoded Files that don't line up with any merged files.
+	#initList()					#Rescan List after the file moves
 #	pdb.set_trace()
-	#Check if it's already merged and merge if it isn't
-#	print "[DBG] Checking transcodedFileList"
-	#import pdb
+
+#Sort the Dictionary lists
+	sourceFileList.sort()
+	transcodedFileList.sort()
+	mergedFileList.sort()
+	convertedFileList.sort()
+#	sourceFileList.sort(key=operator.itemgetter('name'))
+#	transcodedFileList.sort(key=operator.itemgetter('name'))
+#	mergedFileList.sort(key=operator.itemgetter('name'))
+#	convertedFileList.sort(key=operator.itemgetter('name'))
+
+	print "----		%s Movies in the Source Directory" % len(sourceFileList)
+	for source in sourceFileList:
+			print '%-60s' % source['name']
+	print "----		%s Movie Files Transcoded" % len(transcodedFileList)
+	for merged in transcodedFileList:
+			print '%-60s' % merged['name']
+	print "----		%s Movies Finished and Merged" % len(mergedFileList)
+	for converted in mergedFileList:
+			print '%-60s' % converted['name']
+	print "-----End of LIST-----"
+
+#One last check after of unmerged transcoded files before pausing to stop the wait before merging
+	unmergedFileCount = 0
+	for transcoded in transcodedFileList:
+		if transcoded['merged'] == 'no':
+			unmergedFileCount = unmergedFileCount + 1
+	print "[DBG] Unmerged File Count is: %s" % unmergedFileCount
+
 	#pdb.set_trace()
+
 	for transcoded in transcodedFileList:
 		if transcoded['merged'] == 'no':
 			#Find the path of the source file that matches that transcoded file
 			for source in range(len(sourceFileList)):
-				print "Source: %s	Transcoded: %s" % (sourceFileList[source]['name'], transcoded['name'])
 				if sourceFileList[source]['name'] == transcoded['name']:
+					print "Source: %s	Transcoded: %s" % (sourceFileList[source]['name'], transcoded['name'])
 					subprocess.Popen('echo "[$(date +%b\ %d\ %Y:\ %H:%M:%S)] Starting Merge:" "' + transcoded['name'] + '"', shell=True)
 					mkvCheck_cmd = 'mkvmerge -i "' + sourceFileList[source]['path'] + transcoded['name'] + '.mkv"'
 					print "[DBG] Command is: %s" % mkvCheck_cmd
@@ -204,10 +265,8 @@ while convert == True:
 						], timeout = 10)
 					if status == 0:
 						print "[DBG] ERROR returned Status of mkvCheck is: %s" % status
-
-					mkvCheck.close()
-
-					if status == 2 or status == 14 or status == 17:         #DTS 7.1
+						mkvCheck.close()
+					elif status == 2 or status == 14 or status == 17:         #DTS 7.1
 						print "Audio is DTS-True Surround"
 						audioTrack1 = "DTS-TrueHD"
 					elif status == 3:	                		#DTS-MA
@@ -248,7 +307,7 @@ while convert == True:
 						print "TrueHD Atmos"
 						audioTrack1 = "TrueHD.Atmos"
 
-                                        print "[DBG] Status is: %s" % status
+					print "[DBG] Status is: %s" % status
 
 					#mkvmerge -o <outputfile> <file with x264> <file with audio/subtitle>
 
@@ -256,8 +315,6 @@ while convert == True:
 						merge_cmd = 'mkvmerge -o "' + MERGED + transcoded['name'] + '.x264.' + audioTrack1  + '.Sub.mkv" --title "' + transcoded['name'] + '.x264.' + audioTrack1 + '.Sub.mkv" --track-order 2:1,3:2,3:3,3:4 --no-chapters "' + TRANSCODED + transcoded['name'] + '.x264.mkv" --track-name 2:"' + audioTrack1 + '" --track-name 3:"' + audioTrack2 + '" -D "' + sourceFileList[source]['path'] + transcoded['name'] + '.mkv"'
 					else:
 						merge_cmd = 'mkvmerge -o "' + MERGED + transcoded['name'] + '.x264.' + audioTrack1  + '.Sub.mkv" --title "' + transcoded['name'] + '.x264.' + audioTrack1 + '.Sub.mkv" --track-order 2:1,3:2,3:3,3:4 --no-chapters "' + TRANSCODED + transcoded['name'] + '.x264.mkv" --track-name 2:"' + audioTrack1 + '" -D "' + sourceFileList[source]['path'] + transcoded['name'] + '.mkv"'
-					move_cmd = 'mv ' + sourceFileList[source]['path'] + sourceFileList[source]['name'] + '.mkv ' + CONVERTED + sourceFileList[source]['name'] + '.mkv'
-
 					print "[DBG] merge_cmd is: %s" % merge_cmd
 					#print "move_cmd is: %s" % move_cmd
 					merge = pexpect.spawn(merge_cmd)
@@ -266,24 +323,9 @@ while convert == True:
 					if status == 0:
 						subprocess.Popen('echo "[$(date +%b\ %d\ %Y:\ %H:%M:%S)] Merging Failed: Timed Out', shell=True)
 					merge.close()
-
-					#Fix Permissions before another loop of Transcoding
-					subprocess.Popen('find ' + SOURCE + ' -type f -name "*.mkv" -print0 | xargs chmod 644', shell=True)
-					subprocess.Popen('find ' + SOURCE + ' -type f -name "*.mkv" -print0 | xargs chown ' + PERMISSIONS, shell=True)
-					subprocess.Popen('find ' + MERGED + ' -type f -name "*.mkv" -print0 | xargs chmod 644', shell=True)
-					subprocess.Popen('find ' + MERGED + ' -type f -name "*.mkv" -print0 | xargs chown ' + PERMISSIONS, shell=True)
-
 					subprocess.Popen('echo "[$(date +%b\ %d\ %Y:\ %H:%M:%S)] Finished Merging:" "' + transcoded['name'] + '"', shell=True)
-					subprocess.Popen(move_cmd, shell=True)
-		else:
-			#pdb.set_trace()
-			move_cmd = 'mv ' +  transcoded['path'] + transcoded['name'] + '.mkv ' + CONVERTED + 'Transcoded/'
-			print "[DBG] move_cmd is: %s" % move_cmd
-			#pdb.set_trace()
-			subprocess.Popen('echo "[$(date +%b\ %d\ %Y:\ %H:%M:%S)] Moving to Completed:" "' + transcoded['name'] + '"', shell=True)
-			subprocess.Popen(move_cmd, shell=True)
 
-	#Check if it's already transcoded
+#Check if it's already transcoded
 	for source in sourceFileList:
 		if source['transcoded'] == 'no':
 			process = subprocess.Popen('ps -ef | egrep "HandBrakeCLI" | grep -v grep', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -316,17 +358,10 @@ while convert == True:
 		#break
 		#print "Waiting for %s minutes" % str(pauseTime/60)
 
-
-	#One last check after of unmerged transcoded files before pausing to stop the wait before merging
-	unmergedFileCount = 0
-	for transcoded in transcodedFileList:
-		if transcoded['merged'] == 'no':
-			unmergedFileCount = unmergedFileCount + 1
 	if unmergedFileCount == 0:
+#Reset to default
+#Rescan everything again after moving the files.
 		pauseTime = 3600
 		subprocess.Popen('echo "[$(date +%b\ %d\ %Y:\ %H:%M:%S)] Completed, Waiting for 60 minutes"', shell=True)
-		time.sleep(pauseTime)
-	else:
-		pauseTime = 300
-		subprocess.Popen('echo "[$(date +%b\ %d\ %Y:\ %H:%M:%S)] Waiting for 5 minutes"', shell=True)
+		#pdb.set_trace()
 		time.sleep(pauseTime)
