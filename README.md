@@ -16,8 +16,9 @@ BluRay to MKV Automation
 * USER_PERMISSION = 'youruser'
 * GROUP_PERMISSION = 'yourgroup'
 
-Script will look for that largest share out of DVD and BluRay to move the Merged File into
-Modify the share, path and media, the script looks for the share and path, and if it's a DVD will put the merged file into the DVD path
+Script will look for that largest share out of DVD and BluRay Dictionary to move the Merged File into.
+Modify the share, path and media of STORAGE Dictionary, the script looks for the share and path,  if the Merged MKV has DVD in the filename, it will move the merged file into the DVD path.
+The same goes for BluRay names.
 
 * STORAGE  = [
 *        {'freeSpace' : None, 'share' : '/share/3000gb-1', 'path' : '/Movies/', 'media': 'BluRay'},
